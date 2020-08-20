@@ -1,0 +1,231 @@
+---
+title: "Online Job Vacancies Web scraped from National Employment Agency Romania (RO)"
+subtitle: "Q2 2020"
+author: "INS-RO"
+date: "9/20/2020"
+output:
+  word_document: default
+  html_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+library(readr)
+library(dplyr)
+library(knitr)
+library(ggplot2)
+myfile <- "anofm_2020-05-31.csv"
+my_col_types <- "ccDcccccccccdccTTcdddccccccccccccccccccccccTc"
+ojv_anofm <- read_csv(myfile, col_types = my_col_types, n_max = 5)
+ojv_anofm_names <- names(ojv_anofm)
+ojv_anofm <- read_csv(myfile, col_names = FALSE, col_types = paste0(rep("c", 45), collapse = ""), skip = 1)
+names(ojv_anofm) <- ojv_anofm_names
+source("utils.R")
+```
+
+# Potential indicators from OJVs collected from National Employment Agency - Romania
+
+## Potential indicators from OJVs - Methodological framework V1
+
+* Number of available on-line job vacancies in a reference day  
+* Number of OJAs web scraped in a reference day by COR/ESCO level 2  
+* Number of OJVs web scraped in a reference day by required educational level    
+* Number of OJAs web scraped in a reference day by CAEN/NACE  
+* Number of OJAs web scraped in a reference day by Working Time  
+* Number of OJAs web scraped in a reference day by Experience Years  
+* Number of OJAs web scraped in a reference day by County  
+* Number of OJAs web scraped in a reference day by Region Code  
+* Daily pseudo-stocks of job ads based on CEDEFOP data  
+
+
+# Results for Potential indicators from OJVs  
+
+## Dates and times of observations
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+ojv_anofm %>% 
+  distinct(POSTED_JOBS_ID, .keep_all = TRUE) %>%
+  select(EXPIRATION_DATE) %>% 
+  unlist() %>%
+  as.vector() %>%
+  as.Date.character(origin = "1970-01-01") -> tmp1
+  tmp1 <- tmp1[tmp1 < as.Date("2025-01-01")]
+  tmp1 <- range(tmp1)
+  minDate <- tmp1[1]
+  maxDate <- tmp1[2]
+  rm(tmp1)
+```
+
+The interval in which the OJVs are available (not expirated):  `r paste0(minDate, " - ", maxDate)`.  
+
+
+## Number of available on-line job vacancies in a reference day  
+
+Data collected from National Employment Agency from Romania refers to all observations webscraped in the reference day of JVS from website www.anofm.ro, the last day of the second month of a quarter (May 2020).    
+In the National Employment Agency database there are `r nrow(ojv_anofm)` observations in the reference day.  
+Of these, the total number of unique OJV is `r nrow(ojv_anofm %>% select(POSTED_JOBS_ID) %>% distinct())`.  
+The total number of JVs posted in the National Employment Agency is `r format(as.numeric(ojv_anofm %>% select(NR_LMV) %>% summarise(TOTAL_NR_LMV = sum(as.numeric(NR_LMV)))), scientific = FALSE)`.  
+The number of employers who posted the OJV is `r nrow(ojv_anofm %>% select(CF) %>% distinct())`.  
+
+
+## Number of OJAs web scraped in a reference day by COR level 2  
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+ojv_anofm %>% 
+  distinct(POSTED_JOBS_ID, .keep_all = TRUE) %>%
+  select(COR_CODE, NR_LMV) %>%
+  mutate(COR_CODE_2c = stringr::str_sub(COR_CODE, 1, 2)) %>%
+  group_by(COR_CODE_2c) %>%
+  summarise(Freq = sum(as.numeric(NR_LMV))) -> ojv_anofm_cor
+names(ojv_anofm_cor) <- c("COR_level_2", "Freq")
+g1 <- ggplot(ojv_anofm_cor, aes(x = COR_level_2, y = Freq)) +
+  geom_bar(stat = "identity", width=0.7, fill="steelblue") + 
+  ggtitle("COR Level 2") +
+  labs(x = 'COR', y = 'Number of vacancies') + 
+  theme_minimal() +
+  theme(axis.text.x = element_text(size=7, angle = 90, hjust = 1, vjust = 0))
+print(g1)
+```
+
+## Number of OJVs web scraped in a reference day by required educational level
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+isced <- read.csv("SCHOOL_TYPE_ISCED.csv")
+ojv_anofm <- merge(ojv_anofm, isced, by = c("SCHOOL_TYPE"), all.x = TRUE)
+rm(isced)
+ojv_anofm %>% 
+  distinct(POSTED_JOBS_ID, .keep_all = TRUE) %>%
+  select(ISCED, NR_LMV) %>%
+  group_by(ISCED) %>%
+  summarise(Freq = sum(as.numeric(NR_LMV))) -> ojv_anofm_ed_lev
+names(ojv_anofm_ed_lev) <- c("Educational_level", "Freq")
+g1 <- ggplot(ojv_anofm_ed_lev, aes(x = Educational_level, y = Freq)) +
+  geom_bar(stat = "identity", width=0.7, fill="steelblue") + 
+  ggtitle("Number of OJVs web scraped by Educational level") +
+  labs(x = 'Educational level', y = 'Number of vacancies') + 
+  theme_minimal() +
+  theme(axis.text.x = element_text(size=7, angle = 90, hjust = 1, vjust = 0))
+print(g1)
+```
+
+## Number of OJAs web scraped in a reference day by CAEN  
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+ojv_anofm %>% 
+  distinct(POSTED_JOBS_ID, .keep_all = TRUE) %>%
+  select(COD_CAEN, NR_LMV) %>%
+  mutate(COD_CAEN = stringr::str_sub(COD_CAEN, 1, 2)) %>%
+  group_by(COD_CAEN) %>%
+  summarise(Freq = sum(as.numeric(NR_LMV))) -> ojv_anofm_caen
+names(ojv_anofm_caen) <- c("COD_CAEN", "Freq")
+g1 <- ggplot(ojv_anofm_caen, aes(x = COD_CAEN, y = Freq)) +
+  geom_bar(stat = "identity", width=0.7, fill="steelblue") + 
+  ggtitle("COD CAEN") +
+  labs(x = 'COD_CAEN', y = 'Number of vacancies') + 
+  theme_minimal() +
+  theme(axis.text.x = element_text(size=7, angle = 90, hjust = 1, vjust = 0))
+print(g1)
+```
+
+## Number of OJAs web scraped in a reference day by Working Time  
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+ojv_anofm %>% 
+  distinct(POSTED_JOBS_ID, .keep_all = TRUE) %>%
+  select(WORKING_TIME, NR_LMV) %>%
+  group_by(WORKING_TIME) %>%
+  summarise(Freq = sum(as.numeric(NR_LMV))) -> ojv_anofm_wt
+names(ojv_anofm_wt) <- c("WORKING_TIME", "Freq")
+g1 <- ggplot(ojv_anofm_wt, aes(x = WORKING_TIME, y = Freq)) +
+  geom_bar(stat = "identity", width=0.7, fill="steelblue") + 
+  ggtitle("WORKING TIME") +
+  labs(x = 'Working Time', y = 'Number of vacancies') + 
+  theme_minimal() +
+  theme(axis.text.x = element_text(size=9, hjust = 1, vjust = 0))
+print(g1)
+```
+
+## Number of OJAs web scraped in a reference day by Experience Years  
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+exp_years <- read.csv("exp_years.csv")
+ojv_anofm <- merge(ojv_anofm, exp_years, by = c("experienta"), all.x = TRUE)
+rm(exp_years)
+ojv_anofm %>% 
+  distinct(POSTED_JOBS_ID, .keep_all = TRUE) %>%
+  select(exp_years, NR_LMV) %>%
+  group_by(exp_years) %>%
+  summarise(Freq = sum(as.numeric(NR_LMV))) -> ojv_anofm_ey
+names(ojv_anofm_ey) <- c("exp_years", "Freq")
+g1 <- ggplot(ojv_anofm_ey, aes(x = exp_years, y = Freq)) +
+  geom_bar(stat = "identity", width=0.7, fill="steelblue") + 
+  ggtitle("Experience Years") +
+  labs(x = 'Experience Years', y = 'Number of vacancies') + 
+  theme_minimal() +
+  theme(axis.text.x = element_text(size=9, hjust = 1, vjust = 0))
+print(g1)
+```
+
+
+## Number of OJAs web scraped in a reference day by County  
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+ojv_anofm %>% 
+  distinct(POSTED_JOBS_ID, .keep_all = TRUE) %>%
+  select(ABBR, NR_LMV) %>%
+  group_by(ABBR) %>%
+  summarise(Freq = sum(as.numeric(NR_LMV))) -> ojv_anofm_jud
+names(ojv_anofm_jud) <- c("ABBR", "Freq")
+g1 <- ggplot(ojv_anofm_jud, aes(x = ABBR, y = Freq)) +
+  geom_bar(stat = "identity", width=0.7, fill="steelblue") + 
+  ggtitle("County") +
+  labs(x = 'County Code', y = 'Number of vacancies') + 
+  theme_minimal() +
+  theme(axis.text.x = element_text(size=7, angle = 90, hjust = 1, vjust = 0))
+print(g1)
+```
+
+
+## Number of OJAs web scraped in a reference day by Region Code  
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+ojv_anofm %>% 
+  distinct(POSTED_JOBS_ID, .keep_all = TRUE) %>%
+  select(REGION_CODE, NR_LMV) %>%
+  group_by(REGION_CODE) %>%
+  summarise(Freq = sum(as.numeric(NR_LMV))) -> ojv_anofm_rc
+names(ojv_anofm_rc) <- c("REGION_CODE", "Freq")
+g1 <- ggplot(ojv_anofm_rc, aes(x = REGION_CODE, y = Freq)) +
+  geom_bar(stat = "identity", width=0.7, fill="steelblue") + 
+  ggtitle("REGION CODE") +
+  labs(x = 'Region Code', y = 'Number of vacancies') + 
+  theme_minimal() +
+  theme(axis.text.x = element_text(size=7, angle = 90, hjust = 1, vjust = 0))
+print(g1)
+```
+
+## Number of OJAs web scraped in a reference day by Organization   
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+ojv_anofm %>% 
+  distinct(POSTED_JOBS_ID, .keep_all = TRUE) %>%
+  select(ORGANIZATION_ID, NR_LMV) %>%
+  group_by(ORGANIZATION_ID) %>%
+  summarise(Freq = sum(as.numeric(NR_LMV))) -> ojv_anofm_org
+names(ojv_anofm_org) <- c("ORGANIZATION_ID", "Freq")
+ojv_anofm_org %>%
+  select(NR_LMV = Freq) %>%
+  group_by(NR_LMV) %>%
+  summarise(Freq = n()) -> ojv_anofm_org
+g1 <- ggplot(ojv_anofm_org, aes(x = NR_LMV, y = Freq)) +
+  geom_bar(stat = "identity", width=0.7, fill="steelblue") + 
+  ggtitle("No of Organizations per No JVs") +
+  labs(x = 'No of JVs', y = 'Number of organizations') + 
+  theme_minimal() +
+  theme(axis.text.x = element_text(size=7, angle = 90, hjust = 1, vjust = 0))
+print(g1)
+```
+
